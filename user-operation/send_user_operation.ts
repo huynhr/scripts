@@ -4,9 +4,10 @@ dotenv.config();
 import { Client, UserOperationBuilder } from "userop";
 import { rpcUrl, entryPoint, sender, nonce, toAddress } from "./config";
 import { genCallDataTransferEth } from "./gen_callData";
+import { fetchGasPrice } from "./get-gas-price";
 
 const signature =
-  "0xb5a96d113a30346c0a9fd501c19b87e0777f69ffdf25b2ccf4b9c4716e39e9a4534378ea1fedf8ff6ce8b7313676d61f1ec1f061e98685277a24e8c6e0aea7411b";
+  "0x87d4c911de6925b45d827bdd682400096dd1e06c72b2e5c0609c54b6f81575cb559f794757e945492dfed3529587795e80efeaa3a35721b9f59fbdc2bd0f72271c";
 
 async function main() {
   try {
@@ -18,13 +19,18 @@ async function main() {
 
     // build userOp
     const nonceHex = toHex(nonce);
-    const builder = new UserOperationBuilder().useDefaults({
-      sender,
-      nonce: nonceHex,
-      signature,
-      callData,
-    });
+    const builder = new UserOperationBuilder()
+      .useDefaults({
+        sender,
+        nonce: nonceHex,
+        signature,
+        callData,
+      })
+      .useMiddleware(fetchGasPrice);
+
     const userOp = await client.buildUserOperation(builder);
+
+    console.log({ userOp: JSON.stringify(userOp) });
 
     // generate output for pilmico bundler
     const output = {
