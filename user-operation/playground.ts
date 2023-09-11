@@ -1,23 +1,30 @@
 import { hexToNumber, formatEther, hexToString, hexToBigInt } from "viem";
 
-// const preVerificationGasCost = hexToNumber("0x5208");
-// const calcPreVerificationGasInEth = formatEther(BigInt(preVerificationGasCost));
-
-const preVerificationGasLimit = hexToBigInt("0xabe8");
-const calcPreVerificationGasLimitInEth = formatEther(preVerificationGasLimit);
-
-// const callGasLimit = hexToNumber("0x88b8");
-// const callGasLimitInEther = formatEther(BigInt(callGasLimit));
+const cumulativeGasCost = hexToBigInt("0x244b23");
+const inEth1 = formatEther(cumulativeGasCost);
 
 console.log({
-  // preVerificationGasCost,
-  // calcPreVerificationGasInEth,
-  preVerificationGasLimit,
-  calcPreVerificationGasLimitInEth,
-  // callGasLimit,
-  // callGasLimitInEther,
+  cumulativeGasCost,
+  inEth1,
 });
 
-/**
- * current EOA balance: 1.027022317793096539
- */
+const gasUsed = hexToBigInt("0x19c45");
+const inEth2 = formatEther(gasUsed);
+
+console.log({
+  gasUsed,
+  inEth2,
+});
+
+const effectiveGasPrice = hexToBigInt("0x721");
+const inEth3 = formatEther(effectiveGasPrice);
+
+console.log({
+  effectiveGasPrice,
+  inEth3,
+});
+
+const actualGasUsed = hexToBigInt("0x19610");
+const actualGasCost = hexToBigInt("0xc6f7770");
+
+console.log({ actualGasUsed, actualGasCost });

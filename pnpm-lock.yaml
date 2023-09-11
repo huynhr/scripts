@@ -5,6 +5,12 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@account-abstraction/contracts':
+    specifier: ^0.6.0
+    version: 0.6.0
+  '@ethersproject/providers':
+    specifier: ^5.7.2
+    version: 5.7.2
   axios:
     specifier: ^1.5.0
     version: 1.5.0
@@ -36,6 +42,10 @@ devDependencies:
     version: 5.1.6
 
 packages:
+
+  /@account-abstraction/contracts@0.6.0:
+    resolution: {integrity: sha512-8ooRJuR7XzohMDM4MV34I12Ci2bmxfE9+cixakRL7lA4BAwJKQ3ahvd8FbJa9kiwkUPCUNtj+/zxDQWYYalLMQ==}
+    dev: false
 
   /@adraffy/ens-normalize@1.9.0:
     resolution: {integrity: sha512-iowxq3U30sghZotgl4s/oJRci6WPBfNO5YYgk2cIOMCHr3LeGPcsZjCEr+33Q4N+oV3OABDAtA+pyvWjbvBifQ==}

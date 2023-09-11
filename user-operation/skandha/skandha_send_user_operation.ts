@@ -2,10 +2,15 @@ import { formatEther, parseUnits, toBytes, toHex } from "viem";
 import { UserOperationStruct } from "@account-abstraction/contracts";
 import axios from "axios";
 
-import { entryPointContract, viemPublicClient, walletClient } from "./clients";
-import { bundlerRpcUrl, entryPoint, sender, toAddress } from "./config";
-import { genCallDataTransferEth } from "./gen_callData";
-import { BUNDLER_METHODS } from "./bundler-methods";
+import { entryPointContract, viemPublicClient, walletClient } from "../clients";
+import { genCallDataTransferEth } from "../gen_callData";
+import {
+  BUNDLER_METHODS,
+  bundlerRpcUrl,
+  entryPoint,
+  sender,
+  toAddress,
+} from "./config";
 
 async function sendUserOperation(userOperation: UserOperationStruct) {
   const { data } = await axios({
@@ -23,13 +28,15 @@ async function sendUserOperation(userOperation: UserOperationStruct) {
 }
 
 async function fetchGasEstimation(userOperation: any) {
+  console.log({ userOperationForEstimation: userOperation });
+
   const { data } = await axios({
     method: "POST",
     url: bundlerRpcUrl,
     data: {
       id: 1,
       jsonrpc: "2.0",
-      method: BUNDLER_METHODS.estimateGas,
+      method: BUNDLER_METHODS.estimateUserOperationGas,
       params: [userOperation, entryPoint],
     },
   });
@@ -40,12 +47,6 @@ async function fetchGasEstimation(userOperation: any) {
 
   if (data.result) {
     console.log({ gasPrices: data.result });
-    console.log({
-      preVerificationGas: BigInt(data.result.preVerificationGas),
-      verificationGas: BigInt(data.result.verificationGas),
-      verificationGasLimit: BigInt(data.result.verificationGasLimit),
-      callGasLimit: BigInt(data.result.callGasLimit),
-    });
     return data.result;
   }
 
@@ -59,7 +60,7 @@ async function fetchGasPrice() {
     data: {
       id: 1,
       jsonrpc: "2.0",
-      method: BUNDLER_METHODS.getGasPrice,
+      method: BUNDLER_METHODS.estimateGas,
       params: [],
     },
   });
@@ -115,25 +116,29 @@ async function main() {
 
     const userOperation: any = {
       sender,
-      nonce: toHex(nonce.toBigInt()),
+      nonce: nonce.toBigInt().toString(),
       initCode: "0x",
       callData,
-      maxFeePerGas: gasPrice.standard.maxFeePerGas,
-      maxPriorityFeePerGas: gasPrice.standard.maxPriorityFeePerGas,
+      maxFeePerGas: BigInt(gasPrice.maxFeePerGas).toString(),
+      maxPriorityFeePerGas: BigInt(gasPrice.maxPriorityFeePerGas).toString(),
+      preVerificationGas: "0",
+      verificationGasLimit: "0",
+      callGasLimit: "0",
       paymasterAndData: "0x",
       signature: "0x",
     };
 
     const estimatedGasForOp = await fetchGasEstimation(userOperation);
-    // prettier-ignore
-    // userOperation.preVerificationGas = toHex(BigInt(Math.floor(Number(BigInt(estimatedGasForOp.preVerificationGas)) / 2)));
-    userOperation.preVerificationGas = estimatedGasForOp.preVerificationGas;
-    // prettier-ignore
-    // userOperation.verificationGasLimit = toHex(BigInt(Math.floor(Number(BigInt(estimatedGasForOp.verificationGasLimit)) / 2)));
-    userOperation.verificationGasLimit = estimatedGasForOp.verificationGasLimit;
-    // prettier-ignore
-    // userOperation.callGasLimit = toHex(BigInt(Math.floor(Number(BigInt(estimatedGasForOp.callGasLimit)) / 2)));
-    userOperation.callGasLimit = estimatedGasForOp.callGasLimit;
+
+    userOperation.preVerificationGas = BigInt(
+      estimatedGasForOp.preVerificationGas
+    ).toString();
+    userOperation.verificationGasLimit = BigInt(
+      estimatedGasForOp.verificationGasLimit
+    ).toString();
+    userOperation.callGasLimit = BigInt(
+      estimatedGasForOp.callGasLimit
+    ).toString();
 
     const estimatedGasCostWei = calculateTotalGasCost({
       preVerificationGasLimit: BigInt(userOperation.preVerificationGas),
