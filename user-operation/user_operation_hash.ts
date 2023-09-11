@@ -9,6 +9,7 @@ import {
 
 import { sender, entryPoint, rpcUrl, nonce, toAddress } from "./config";
 import { genCallDataTransferEth } from "./gen_callData";
+import { fetchGasPrice } from "./get-gas-price";
 
 async function main() {
   try {
@@ -21,11 +22,13 @@ async function main() {
 
     // build userOp
     const nonceHex = toHex(nonce);
-    const builder = new UserOperationBuilder().useDefaults({
-      sender,
-      nonce: nonceHex,
-      callData,
-    });
+    const builder = new UserOperationBuilder()
+      .useDefaults({
+        sender,
+        nonce: nonceHex,
+        callData,
+      })
+      .useMiddleware(fetchGasPrice);
     const userOp = await client.buildUserOperation(builder);
 
     // get userOpHash
@@ -34,6 +37,8 @@ async function main() {
       entryPoint,
       client.chainId
     );
+
+    console.log({ userOp: JSON.stringify(userOp) });
     const userOpHash = middleware.getUserOpHash();
     console.log({ userOpHash });
 
