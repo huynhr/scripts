@@ -3,8 +3,14 @@ import { UserOperationStruct } from "@account-abstraction/contracts";
 import axios from "axios";
 
 import { entryPointContract, viemPublicClient, walletClient } from "./clients";
-import { bundlerRpcUrl, entryPoint, sender, toAddress } from "./config";
-import { genCallDataTransferEth } from "./gen_callData";
+import {
+  bundlerRpcUrl,
+  entryPoint,
+  nftData,
+  sender,
+  toAddress,
+} from "./config";
+import { genCallDataTransferEth, genCallDataTransferNFT } from "./gen_callData";
 import { BUNDLER_METHODS } from "./bundler-methods";
 
 async function sendUserOperation(userOperation: UserOperationStruct) {
@@ -23,33 +29,44 @@ async function sendUserOperation(userOperation: UserOperationStruct) {
 }
 
 async function fetchGasEstimation(userOperation: any) {
-  const { data } = await axios({
-    method: "POST",
-    url: bundlerRpcUrl,
-    data: {
-      id: 1,
-      jsonrpc: "2.0",
-      method: BUNDLER_METHODS.estimateGas,
-      params: [userOperation, entryPoint],
-    },
-  });
-
-  if (data.error) {
-    throw new Error(JSON.stringify(data.error));
-  }
-
-  if (data.result) {
-    console.log({ gasPrices: data.result });
-    console.log({
-      preVerificationGas: BigInt(data.result.preVerificationGas),
-      verificationGas: BigInt(data.result.verificationGas),
-      verificationGasLimit: BigInt(data.result.verificationGasLimit),
-      callGasLimit: BigInt(data.result.callGasLimit),
+  try {
+    console.log({ bundlerRpcUrl });
+    const { data } = await axios({
+      method: "POST",
+      url: bundlerRpcUrl,
+      timeout: 100000,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      data: {
+        id: 2,
+        jsonrpc: "2.0",
+        method: BUNDLER_METHODS.estimateGas,
+        params: [userOperation, entryPoint],
+      },
     });
-    return data.result;
-  }
 
-  return {};
+    if (data.error) {
+      throw new Error(JSON.stringify(data.error));
+    }
+
+    if (data.result) {
+      console.log({ gasPrices: data.result });
+      console.log({
+        preVerificationGas: BigInt(data.result.preVerificationGas),
+        verificationGas: BigInt(data.result.verificationGas),
+        verificationGasLimit: BigInt(data.result.verificationGasLimit),
+        callGasLimit: BigInt(data.result.callGasLimit),
+      });
+      return data.result;
+    }
+
+    return {};
+  } catch (err) {
+    console.error(err);
+
+    throw new Error(JSON.stringify(err));
+  }
 }
 
 async function fetchGasPrice() {
@@ -107,6 +124,13 @@ async function main() {
 
     const [callData, gasPrice, nonce] = await Promise.all([
       genCallDataTransferEth(toAddress, amount),
+      // genCallDataTransferNFT(
+      //   sender,
+      //   toAddress,
+      //   nftData.contractAddress,
+      //   nftData.tokenId,
+      //   "ERC721"
+      // ),
       fetchGasPrice(),
       await entryPointContract.getNonce(sender, 0),
     ]);
