@@ -1,8 +1,14 @@
+import { signature } from "./skandha/config";
 import { formatEther, parseUnits, toBytes, toHex } from "viem";
 import { UserOperationStruct } from "@account-abstraction/contracts";
 import axios from "axios";
 
-import { entryPointContract, viemPublicClient, walletClient } from "./clients";
+import {
+  entryPointContract,
+  pimlicoProvider,
+  viemPublicClient,
+  walletClient,
+} from "./clients";
 import {
   bundlerRpcUrl,
   entryPoint,
@@ -14,7 +20,7 @@ import { genCallDataTransferEth, genCallDataTransferNFT } from "./gen_callData";
 import { BUNDLER_METHODS } from "./bundler-methods";
 
 async function sendUserOperation(userOperation: UserOperationStruct) {
-  const { data } = await axios({
+  const requestObj = {
     method: "POST",
     url: bundlerRpcUrl,
     data: {
@@ -23,7 +29,10 @@ async function sendUserOperation(userOperation: UserOperationStruct) {
       method: BUNDLER_METHODS.sendUserOperation,
       params: [userOperation, entryPoint],
     },
-  });
+  };
+
+  console.log({ requestObj });
+  const { data } = await axios(requestObj);
 
   return data;
 }
@@ -47,6 +56,7 @@ async function fetchGasEstimation(userOperation: any) {
     });
 
     if (data.error) {
+      console.log({ ERROR_ESTIMATING_GAS: JSON.stringify(data.error) });
       throw new Error(JSON.stringify(data.error));
     }
 
@@ -63,10 +73,64 @@ async function fetchGasEstimation(userOperation: any) {
 
     return {};
   } catch (err) {
-    console.error(err);
+    console.log({ axiosError: err });
 
     throw new Error(JSON.stringify(err));
   }
+}
+
+async function getPaymasterAndData(userOperation: any) {
+  const url =
+    "https://api.stackup.sh/v1/paymaster/bfcde50857cc5af93822d5f310ece91cf0791e05e023d574826c6a68b0f47138";
+
+  /**
+   * const userOperation: any = {
+      sender,
+      nonce: toHex(nonce.toBigInt()),
+      initCode: "0x",
+      callData,
+      maxFeePerGas: gasPrice.standard.maxFeePerGas,
+      maxPriorityFeePerGas: gasPrice.standard.maxPriorityFeePerGas,
+      // paymasterAndData:
+      //   "0x67f21be69a16c314a0b7da537309b2f3addde03100000000000000000000000000000000000000000000000000000101010101010000000000000000000000000000000000000000000000000000000000000000cd91f19f0f19ce862d7bec7b7d9b95457145afc6f639c28fd0360f488937bfa41e6eedcd3a46054fd95fcd0e3ef6b0bc0a615c4d975eef55c8a3517257904d5b1c",
+      paymasterAndData: "0x",
+      signature: "0x",
+      callGasLimit: toHex(100_000), // hardcode it for now at a high value
+      verificationGasLimit: toHex(400_000), // hardcode it for now at a high value
+      preVerificationGas: toHex(50_000), // hardcode it for now at a high value
+    };
+   */
+  const userOperationToSend = {
+    sender: userOperation.sender,
+    nonce: Number(BigInt(userOperation.nonce)),
+    initCode: Array.from(toBytes(userOperation.initCode)),
+    callData: Array.from(toBytes(userOperation.callData)),
+    callGasLimit: Number(BigInt(userOperation.callGasLimit)),
+    verificationGasLimit: Number(BigInt(userOperation.verificationGasLimit)),
+    preVerificationGas: Number(BigInt(userOperation.preVerificationGas)),
+    maxFeePerGas: Number(BigInt(userOperation.maxFeePerGas)),
+    maxPriorityFeePerGas: Number(BigInt(userOperation.maxPriorityFeePerGas)),
+    paymasterAndData: Array.from(toBytes(userOperation.paymasterAndData)),
+    signature: userOperation.signature,
+  };
+  const { data } = await axios({
+    method: "POST",
+    url,
+    data: {
+      id: 1,
+      jsonrpc: "2.0",
+      method: BUNDLER_METHODS.getPaymasterAndData,
+      params: [
+        userOperationToSend,
+        entryPoint,
+        {
+          type: "payg",
+        },
+      ],
+    },
+  });
+
+  return data?.result;
 }
 
 async function fetchGasPrice() {
@@ -142,22 +206,41 @@ async function main() {
       nonce: toHex(nonce.toBigInt()),
       initCode: "0x",
       callData,
+      // callGasLimit: toHex(100_000), // hardcode it for now at a high value
+      // verificationGasLimit: toHex(400_000), // hardcode it for now at a high value
+      // preVerificationGas: toHex(50_000), // hardcode it for now at a high value
       maxFeePerGas: gasPrice.standard.maxFeePerGas,
       maxPriorityFeePerGas: gasPrice.standard.maxPriorityFeePerGas,
+      // paymasterAndData:
+      //   "0x67f21be69a16c314a0b7da537309b2f3addde03100000000000000000000000000000000000000000000000000000101010101010000000000000000000000000000000000000000000000000000000000000000cd91f19f0f19ce862d7bec7b7d9b95457145afc6f639c28fd0360f488937bfa41e6eedcd3a46054fd95fcd0e3ef6b0bc0a615c4d975eef55c8a3517257904d5b1c",
       paymasterAndData: "0x",
       signature: "0x",
     };
 
+    // const sponsorUserOperationResult = await pimlicoProvider.send(
+    //   "pm_sponsorUserOperation",
+    //   [
+    //     userOperation,
+    //     {
+    //       entryPoint: entryPoint,
+    //     },
+    //   ]
+    // );
+
+    // console.log({ sponsorUserOperationResult });
+
+    // const sponsorUserOperationResult = await getPaymasterAndData(userOperation);
+    // userOperation.paymasterAndData =
+    //   sponsorUserOperationResult.paymasterAndData;
+
     const estimatedGasForOp = await fetchGasEstimation(userOperation);
-    // prettier-ignore
-    // userOperation.preVerificationGas = toHex(BigInt(Math.floor(Number(BigInt(estimatedGasForOp.preVerificationGas)) / 2)));
+    // // prettier-ignore
     userOperation.preVerificationGas = estimatedGasForOp.preVerificationGas;
     // prettier-ignore
-    // userOperation.verificationGasLimit = toHex(BigInt(Math.floor(Number(BigInt(estimatedGasForOp.verificationGasLimit)) / 2)));
     userOperation.verificationGasLimit = estimatedGasForOp.verificationGasLimit;
     // prettier-ignore
-    // userOperation.callGasLimit = toHex(BigInt(Math.floor(Number(BigInt(estimatedGasForOp.callGasLimit)) / 2)));
     userOperation.callGasLimit = estimatedGasForOp.callGasLimit;
+    // userOperation.paymasterAndData = "0x";
 
     const estimatedGasCostWei = calculateTotalGasCost({
       preVerificationGasLimit: BigInt(userOperation.preVerificationGas),
@@ -174,12 +257,13 @@ async function main() {
       userOperation
     );
 
-    console.log({ userOperationHash });
+    console.log({ walletClient });
 
-    const address = await walletClient.getAddresses();
+    const address = walletClient.account.address;
+
+    console.log({ address });
 
     const signature = await walletClient.signMessage({
-      account: address[0],
       message: { raw: toBytes(userOperationHash) },
     });
 
