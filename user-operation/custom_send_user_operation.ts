@@ -187,14 +187,14 @@ async function main() {
     console.log(`Wei to send: ${wei.toString()}`);
 
     const [callData, gasPrice, nonce] = await Promise.all([
-      genCallDataTransferEth(toAddress, amount),
-      // genCallDataTransferNFT(
-      //   sender,
-      //   toAddress,
-      //   nftData.contractAddress,
-      //   nftData.tokenId,
-      //   "ERC721"
-      // ),
+      // genCallDataTransferEth(toAddress, amount),
+      genCallDataTransferNFT(
+        sender,
+        toAddress,
+        nftData.contractAddress,
+        nftData.tokenId,
+        "ERC721"
+      ),
       fetchGasPrice(),
       await entryPointContract.getNonce(sender, 0),
     ]);

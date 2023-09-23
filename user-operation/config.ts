@@ -17,6 +17,6 @@ export const pimlicoAPIKey = process.env.PIMLICO_API_KEY || "";
 export const bundlerRpcUrl = `${bundlerHost}/rpc`;
 
 export const nftData = {
-  contractAddress: "0xe7134A029Cd2Fd55f678D6809E64D0B6A0CaDDcB",
-  tokenId: 340,
+  contractAddress: "0x4Ba9E93337235a5A3E85aBb77a7Ef2898cfF0608",
+  tokenId: 615,
 };
