@@ -1,4 +1,3 @@
-import { toAddress } from "./skandha/config";
 import { encodeFunctionData, parseUnits } from "viem";
 import abi from "./abi.json";
 import { erc1155Abi, erc721Abi } from "../abi";

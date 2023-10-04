@@ -1,16 +1,70 @@
-import { formatEther, parseUnits, toBytes, toHex } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  formatEther,
+  http,
+  parseUnits,
+  toBytes,
+  toHex,
+} from "viem";
 import { UserOperationStruct } from "@account-abstraction/contracts";
 import axios from "axios";
+import { goerli, mainnet } from "viem/chains";
 
-import { entryPointContract, viemPublicClient, walletClient } from "../clients";
 import { genCallDataTransferEth } from "../gen_callData";
-import {
-  BUNDLER_METHODS,
-  bundlerRpcUrl,
-  entryPoint,
-  sender,
-  toAddress,
-} from "./config";
+
+import { config } from "./config";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+import { BUNDLER_METHODS } from "./methods";
+import { privateKeyToAccount } from "viem/accounts";
+import { entryPointABI } from "../../abi";
+
+// Set up yargs
+const argv = yargs(hideBin(process.argv))
+  .demandCommand(1, "You need to specify a network!")
+  .command(
+    "$0 <network>",
+    "Get the configuration for the specified network",
+    (yargs) => {
+      yargs.positional("network", {
+        describe: "Network to retrieve the config for",
+        type: "string",
+        choices: ["goerli", "mainnet"], // Restrict to these choices
+      });
+    }
+  )
+  .help().argv;
+
+// @ts-ignore
+const network = argv.network as string;
+console.log("Using network: ", network);
+
+// Get the configuration for the desired network
+// @ts-ignore
+const networkConfig = config[network];
+
+// const alchemyProvider = new StaticJsonRpcProvider(networkConfig.rpcUrl);
+
+const account = privateKeyToAccount(networkConfig.signerPrivateKey);
+
+export const chainIdToChain: { [key: number]: any } = {
+  1: mainnet,
+  5: goerli,
+};
+
+const viemPublicClient = createPublicClient({
+  transport: http(networkConfig.rpcUrl),
+});
+
+const walletClient = createWalletClient({
+  account,
+  transport: http(networkConfig.rpcUrl),
+});
+
+const { bundlerRpcUrl, entryPoint, sender, toAddress } = networkConfig;
+
+console.log({ bundlerRpcUrl, entryPoint, sender, toAddress });
 
 async function sendUserOperation(userOperation: UserOperationStruct) {
   const { data } = await axios({
@@ -28,7 +82,9 @@ async function sendUserOperation(userOperation: UserOperationStruct) {
 }
 
 async function fetchGasEstimation(userOperation: any) {
-  console.log({ userOperationForEstimation: userOperation });
+  console.log(
+    `User Operation for Gas Estimation: ${JSON.stringify(userOperation)}`
+  );
 
   const { data } = await axios({
     method: "POST",
@@ -46,7 +102,7 @@ async function fetchGasEstimation(userOperation: any) {
   }
 
   if (data.result) {
-    console.log({ gasPrices: data.result });
+    console.log(`gas prices: ${JSON.stringify(data.result)}`);
     return data.result;
   }
 
@@ -109,14 +165,20 @@ async function main() {
     const [callData, gasPrice, nonce] = await Promise.all([
       genCallDataTransferEth(toAddress, amount),
       fetchGasPrice(),
-      await entryPointContract.getNonce(sender, 0),
+      viemPublicClient
+        .simulateContract({
+          address: networkConfig.entryPoint,
+          abi: entryPointABI,
+          functionName: "getNonce",
+          args: [sender, 0],
+          account,
+        })
+        .then((data) => data.result),
     ]);
-
-    console.log({ nonce, gasPrice });
 
     const userOperation: any = {
       sender,
-      nonce: nonce.toBigInt().toString(),
+      nonce: toHex(nonce as bigint),
       initCode: "0x",
       callData,
       maxFeePerGas: BigInt(gasPrice.maxFeePerGas).toString(),
@@ -148,14 +210,24 @@ async function main() {
       maxPriorityFeePerGas: BigInt(userOperation.maxPriorityFeePerGas),
     });
 
-    console.log({ estimatedGasCostWei, eth: formatEther(estimatedGasCostWei) });
-
-    // then get the user operation hash
-    const userOperationHash = await entryPointContract.getUserOpHash(
-      userOperation
+    console.log(
+      `Gas cost in Wei: ${estimatedGasCostWei},\n eth: ${formatEther(
+        estimatedGasCostWei
+      )} }`
     );
 
-    console.log({ userOperationHash });
+    // then get the user operation hash
+    const userOperationHash = await viemPublicClient
+      .simulateContract({
+        address: entryPoint,
+        abi: entryPointABI,
+        functionName: "getUserOpHash",
+        args: [userOperation],
+        account,
+      })
+      .then((data) => data.result as string);
+
+    console.log(`hash: ${userOperationHash}`);
 
     const address = await walletClient.getAddresses();
 
@@ -164,7 +236,7 @@ async function main() {
       message: { raw: toBytes(userOperationHash) },
     });
 
-    console.log({ signature });
+    console.log(`signature: ${signature}`);
 
     userOperation.signature = signature;
 

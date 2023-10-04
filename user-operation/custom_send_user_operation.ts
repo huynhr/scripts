@@ -1,4 +1,3 @@
-import { signature } from "./skandha/config";
 import { formatEther, parseUnits, toBytes, toHex } from "viem";
 import { UserOperationStruct } from "@account-abstraction/contracts";
 import axios from "axios";

@@ -1,6 +1,7 @@
 {
 	"devDependencies": {
 		"@types/node": "^20.4.2",
+		"@types/yargs": "^17.0.26",
 		"typescript": "^5.1.6"
 	},
 	"dependencies": {
@@ -13,6 +14,7 @@
 		"graphql-request": "^6.1.0",
 		"moralis": "^2.22.4",
 		"userop": "^0.3.3",
-		"viem": "^1.3.0"
+		"viem": "^1.3.0",
+		"yargs": "^17.7.2"
 	}
 }
