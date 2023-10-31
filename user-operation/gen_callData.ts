@@ -16,7 +16,7 @@ export async function genCallDataTransferEth(
   return encodeFunctionData({
     abi,
     functionName: "executeCall",
-    args: [toAddress, amountInWei, data],
+    args: [toAddress, 0, data],
   });
 }
 

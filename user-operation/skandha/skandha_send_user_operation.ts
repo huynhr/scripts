@@ -11,7 +11,10 @@ import { UserOperationStruct } from "@account-abstraction/contracts";
 import axios from "axios";
 import { goerli, mainnet } from "viem/chains";
 
-import { genCallDataTransferEth } from "../gen_callData";
+import {
+  genCallDataTransferEth,
+  genCallDataTransferNFT,
+} from "../gen_callData";
 
 import { config } from "./config";
 import yargs from "yargs";
@@ -62,7 +65,7 @@ const walletClient = createWalletClient({
   transport: http(networkConfig.rpcUrl),
 });
 
-const { bundlerRpcUrl, entryPoint, sender, toAddress } = networkConfig;
+const { bundlerRpcUrl, entryPoint, sender, toAddress, nftData } = networkConfig;
 
 console.log({ bundlerRpcUrl, entryPoint, sender, toAddress });
 
@@ -164,6 +167,13 @@ async function main() {
 
     const [callData, gasPrice, nonce] = await Promise.all([
       genCallDataTransferEth(toAddress, amount),
+      // genCallDataTransferNFT(
+      //   sender,
+      //   toAddress,
+      //   nftData.contractAddress,
+      //   nftData.tokenId,
+      //   "ERC721"
+      // ),
       fetchGasPrice(),
       viemPublicClient
         .simulateContract({
