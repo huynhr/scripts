@@ -1,6 +1,6 @@
 import { encodeFunctionData, parseUnits } from "viem";
 import abi from "./abi.json";
-import { erc1155Abi, erc721Abi } from "../abi";
+import { accountAbiV3, erc1155Abi, erc721Abi } from "../abi";
 
 export async function genCallDataTransferEth(
   toAddress: string,
@@ -16,7 +16,25 @@ export async function genCallDataTransferEth(
   return encodeFunctionData({
     abi,
     functionName: "executeCall",
-    args: [toAddress, 0, data],
+    args: [toAddress, amountInWei, data],
+  });
+}
+
+export async function genCallDataTransferEthV3(
+  toAddress: string,
+  amount: number
+) {
+  console.log("starting to generate callData for V3...");
+
+  const amountInWei = parseUnits(amount.toString(), 18);
+  console.log(`Converting ${amount} eth to ${amountInWei} wei...`);
+
+  const data = "0x";
+
+  return encodeFunctionData({
+    abi: accountAbiV3,
+    functionName: "execute",
+    args: [toAddress, amountInWei, data, 0],
   });
 }
 

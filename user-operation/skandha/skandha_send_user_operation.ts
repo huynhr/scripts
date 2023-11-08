@@ -13,6 +13,7 @@ import { goerli, mainnet } from "viem/chains";
 
 import {
   genCallDataTransferEth,
+  genCallDataTransferEthV3,
   genCallDataTransferNFT,
 } from "../gen_callData";
 
@@ -33,7 +34,7 @@ const argv = yargs(hideBin(process.argv))
       yargs.positional("network", {
         describe: "Network to retrieve the config for",
         type: "string",
-        choices: ["goerli", "mainnet"], // Restrict to these choices
+        choices: ["goerli", "mainnet", "optimism", "polygon"], // Restrict to these choices
       });
     }
   )
@@ -105,7 +106,14 @@ async function fetchGasEstimation(userOperation: any) {
   }
 
   if (data.result) {
-    console.log(`gas prices: ${JSON.stringify(data.result)}`);
+    const gasPricesInEth = {
+      preVerificationGas: formatEther(BigInt(data.result.preVerificationGas)),
+      verificationGasLimit: formatEther(
+        BigInt(data.result.verificationGasLimit)
+      ),
+      callGasLimit: formatEther(BigInt(data.result.callGasLimit)),
+    };
+    console.log({ gasPricesInEth });
     return data.result;
   }
 
@@ -158,6 +166,34 @@ function calculateTotalGasCost({
   return totalGasUsage * totalGasFee;
 }
 
+async function getUserOperationByHash(
+  txHash: `0x${string}`,
+  id: number
+): Promise<`0x${string}` | null> {
+  const { data } = await axios.post(bundlerRpcUrl, {
+    id,
+    jsonrpc: "2.0",
+    method: BUNDLER_METHODS.getUserOperationHash,
+    params: [txHash],
+  });
+
+  if (data.error) {
+    throw new Error(
+      `Failed to get userOperation by hash id: ${id}, message: ${data.error.message} `
+    );
+  }
+
+  if (data.result === undefined) {
+    throw new Error(`Failed to get userOperation by hash id: ${id}`);
+  }
+
+  if (data.result === null) {
+    return null;
+  }
+
+  return data.result.transactionHash as `0x${string}`;
+}
+
 async function main() {
   try {
     const amount = 0.00001;
@@ -166,7 +202,8 @@ async function main() {
     console.log(`Wei to send: ${wei.toString()}`);
 
     const [callData, gasPrice, nonce] = await Promise.all([
-      genCallDataTransferEth(toAddress, amount),
+      genCallDataTransferEthV3(toAddress, amount),
+      // genCallDataTransferEth(toAddress, amount),
       // genCallDataTransferNFT(
       //   sender,
       //   toAddress,
@@ -185,6 +222,8 @@ async function main() {
         })
         .then((data) => data.result),
     ]);
+
+    console.log({ nonce });
 
     const userOperation: any = {
       sender,
@@ -253,6 +292,37 @@ async function main() {
     const response = await sendUserOperation(userOperation);
 
     console.log({ response });
+
+    let txReceipt = null;
+    let tries = 0;
+
+    // Get tx hash from bundler
+    while (txReceipt === null) {
+      console.log("tries: ", tries);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const userOperationReceipt = await getUserOperationByHash(
+        response.result,
+        1
+      );
+
+      if (userOperationReceipt === null) {
+        tries += 1;
+      }
+
+      if (tries > 10) {
+        throw new Error(
+          `Failed to get userOperation receipt; tried 10, tx id: ${1}`
+        );
+      }
+
+      txReceipt = userOperationReceipt;
+    }
+
+    if (txReceipt === null) {
+      throw new Error(`Failed to get userOperation receipt, tx id: ${1}`);
+    }
+
+    console.log({ txReceipt });
   } catch (err) {
     console.log(err);
   } finally {
