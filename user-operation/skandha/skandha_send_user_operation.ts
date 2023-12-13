@@ -34,7 +34,7 @@ const argv = yargs(hideBin(process.argv))
       yargs.positional("network", {
         describe: "Network to retrieve the config for",
         type: "string",
-        choices: ["goerli", "mainnet", "optimism", "polygon"], // Restrict to these choices
+        choices: ["goerli", "mainnet", "optimism", "polygon", "polygonMumbai"], // Restrict to these choices
       });
     }
   )
